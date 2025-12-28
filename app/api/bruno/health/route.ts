@@ -29,9 +29,4 @@ export async function GET() {
     return NextResponse.json({ error: String(err) }, { status: 500, headers: { "Access-Control-Allow-Origin": CORS_ORIGIN } });
   }
 }
-import { NextResponse } from "next/server";
-
-// health endpoint removed — return 404 to mimic original repo state where this file didn't exist
-export async function GET() {
-  return NextResponse.json({ message: "Not Found" }, { status: 404 });
-}
+// (no-op) keep only the health-check implementation above

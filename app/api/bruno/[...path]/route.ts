@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+// Import local S3 fallback handler so we can serve musics if Bruno upstream cannot access S3
+import { GET as s3MusicsGET } from "../../s3/musics/route";
 
 // Simple proxy that forwards any request under /api/bruno/* to BRUNO_BASE
 const BRUNO_BASE = process.env.BRUNO_API_BASE || process.env.NEXT_PUBLIC_API_BASE || "";
@@ -23,6 +25,13 @@ async function handleRequest(req: Request) {
   for (const [k, v] of req.headers) {
     if (k.toLowerCase() === "host") continue;
     headers[k] = String(v);
+  }
+
+  // If a Bruno API key is provided in env, forward it as x-api-key.
+  // Use a server-only env var BRUNO_API_KEY (do NOT put secret in NEXT_PUBLIC_*).
+  const BRUNO_API_KEY = process.env.BRUNO_API_KEY || process.env.NEXT_PUBLIC_BRUNO_API_KEY || "";
+  if (BRUNO_API_KEY) {
+    headers["x-api-key"] = BRUNO_API_KEY;
   }
 
   const init: RequestInit = { method: req.method, headers };
@@ -54,6 +63,15 @@ async function handleRequest(req: Request) {
   if (!res.ok) {
     const txt = await res.text().catch(() => "<body read error>");
     console.error("Bruno response", { url, status: res.status, body: txt });
+    // If upstream cannot access S3, fall back to our own S3 handler for music listing/download
+    try {
+      if (txt && txt.includes("Unable to access page") && forwardPath.startsWith("musics") && req.method === "GET") {
+        // delegate to local S3 musics handler (reads S3_BUCKET env)
+        return await s3MusicsGET(req);
+      }
+    } catch (err) {
+      console.error("S3 fallback error:", err);
+    }
     // forward the upstream body with original status
     return new NextResponse(txt, { status: res.status, headers: respHeaders });
   }

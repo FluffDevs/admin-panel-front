@@ -41,7 +41,8 @@ export default function DashboardPage() {
   async function fetchMetadata(id: string) {
     try {
       const url = PROXY_BASE + '/musics/' + encodeURIComponent(id);
-      const res = await fetch(url);
+      const headers: Record<string,string> = auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {};
+      const res = await fetch(url, { headers });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const j = await res.json();
         setViewMetadata(j);
@@ -55,7 +56,8 @@ export default function DashboardPage() {
       if (!confirm('Supprimer la piste ?')) return;
       try {
         const url = PROXY_BASE + '/musics/' + encodeURIComponent(id);
-        const res = await fetch(url, { method: 'DELETE' });
+        const headers: Record<string,string> = auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {};
+        const res = await fetch(url, { method: 'DELETE', headers });
         if (!res.ok) {
           const txt = await res.text().catch(() => res.statusText);
           throw new Error(`HTTP ${res.status}: ${txt}`);
@@ -87,7 +89,8 @@ export default function DashboardPage() {
         const url = PROXY_BASE + "/musics" + `?page=${encodeURIComponent(String(page))}`;
         let res: Response;
         try {
-          res = await fetch(url);
+          const headers: Record<string,string> = auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {};
+          res = await fetch(url, { headers });
         } catch (err: unknown) {
           const em = err instanceof Error ? err.message : String(err);
           setErrorMessage("Impossible de joindre l'API Bruno. Vérifiez l'URL, le réseau et les règles CORS (voir console).\n" + em);
@@ -243,11 +246,11 @@ export default function DashboardPage() {
                   setUploading(true);
                   try {
                     const url = PROXY_BASE + '/musics';
-                    const res = await fetch(url, {
-                      method: 'POST',
-                      headers: { 'Content-Type': selectedFile.type || 'application/octet-stream' },
-                      body: selectedFile,
-                    });
+                      const headers: Record<string,string> = {
+                        'Content-Type': selectedFile.type || 'application/octet-stream',
+                        ...(auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {}),
+                      };
+                      const res = await fetch(url, { method: 'POST', headers, body: selectedFile });
                     if (!res.ok) {
                       const txt = await res.text().catch(() => res.statusText);
                       throw new Error(`Upload failed ${res.status} ${txt}`);
@@ -294,7 +297,27 @@ export default function DashboardPage() {
                         <td className="td muted small">{o.lastModified || "-"}</td>
                         <td className="td muted small">{o.size ? `${(o.size / 1024 / 1024).toFixed(2)} Mo` : "-"}</td>
                         <td className="td">
-                          {o.downloadUrl ? <a href={o.downloadUrl} target="_blank" rel="noreferrer">Télécharger</a> : <span className="muted">—</span>}
+                          {o.downloadUrl ? <button className="btn btn-ghost btn-small" onClick={async () => {
+                            try {
+                              // Use presign endpoint on server so we can attach Authorization header (ID token)
+                              const key = encodeURIComponent(o.id || o.key || '');
+                              const presignUrl = '/api/s3/presign-download?key=' + key;
+                              const headers: Record<string,string> = auth.user?.id_token ? { Authorization: `Bearer ${auth.user.id_token}` } : {};
+                              const r = await fetch(presignUrl, { headers });
+                              if (!r.ok) {
+                                const t = await r.text().catch(() => r.statusText);
+                                throw new Error(`Presign failed ${r.status}: ${t}`);
+                              }
+                              const j = await r.json();
+                              if (j?.url) {
+                                window.open(j.url, '_blank');
+                              } else {
+                                throw new Error('No presigned url returned');
+                              }
+                            } catch (e) {
+                              alert('Erreur téléchargement: ' + (e instanceof Error ? e.message : String(e)));
+                            }
+                          }}>Télécharger</button> : <span className="muted">—</span>}
                           <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
                             <button className="btn btn-ghost btn-small" onClick={() => fetchMetadata(String(o.id || o.key))}>Voir</button>
                             <button className="btn btn-danger btn-small" onClick={() => deleteMusic(String(o.id || o.key))}>Suppr</button>
