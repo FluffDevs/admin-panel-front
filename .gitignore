@@ -31,7 +31,9 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files (can opt-in for committing if needed)
+# ignore all env files by default and explicitly ensure .env.local is ignored
 .env*
+.env.local
 
 # vercel
 .vercel
