@@ -1,8 +1,8 @@
 "use client";
 import React, { useState } from 'react';
 import { useAuth } from 'react-oidc-context';
-import S3Uploader from '@/components/S3Uploader';
-import MusicList from '@/components/MusicList';
+import S3Uploader from '../../components/S3Uploader';
+import MusicList from '../../components/MusicList';
 
 export default function DashboardPage() {
   const auth = useAuth();
@@ -99,7 +99,7 @@ export default function DashboardPage() {
               <S3Uploader
                 token={auth.user?.id_token ?? auth.user?.access_token ?? ''}
                 isProgrammateur={isProgrammateur}
-                onUpload={(key) => {
+                onUpload={(key: string) => {
                   // trigger MusicList refresh by changing key
                   setRefreshKey((k) => k + 1);
                   // show quick feedback
