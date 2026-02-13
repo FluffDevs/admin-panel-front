@@ -9,6 +9,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@pdfme/common": "^5.5.8",
+    "@pdfme/generator": "^5.5.8",
+    "@pdfme/ui": "^5.5.8",
     "next": "16.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3"

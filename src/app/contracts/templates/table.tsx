@@ -1,4 +1,7 @@
+import Designer from "./designer";
+
 export default function Home() {
+	if (true) return <Designer />;
 	return (
 		<table className="w-full">
 			<thead>
