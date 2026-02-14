@@ -1,0 +1,148 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Top logo (dans la barre) : fixe une hauteur max cohérente avec la header bar */
+.top-logo {
+  height: var(--logo-height);
+  max-height: var(--logo-height);
+  width: auto;
+  object-fit: contain;
+}
+
+.navBackdrop {
+  backdrop-filter: blur(6px);
+}
+
+.brandText {
+  line-height: 1;
+}
+
+/* Logogros affiché en mobile (menu ouvert) */
+.logoBig {
+  /* fill the logo container (logoArea) */
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  margin: 0;
+}
+
+.listenButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: linear-gradient(90deg, #a95f5f, #6b2ea6);
+  color: var(--text-light);
+  padding: 0.55rem 1rem;
+  border-radius: 0.9rem;
+  box-shadow: 0 8px 22px rgba(107,46,166,0.18);
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 120ms ease;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.listenButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(107,46,166,0.22);
+}
+
+.listenButton:active {
+  transform: translateY(0);
+}
+
+.icon {
+  display: inline-flex;
+  width: 1rem;
+  height: 1rem;
+}
+
+.liveDot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  background: var(--live);
+  border-radius: 999px;
+  margin-left: 0.4rem;
+  box-shadow: 0 0 0 color-mix(in srgb, var(--live) 60%, transparent 40%);
+  animation: pulse 1.6s infinite;
+}
+
+.listenMobile {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(90deg, var(--accent), var(--brand));
+  color: var(--text-light);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.mobileNav {
+  /* make the mobile nav shrink to the width of its content */
+  display: inline-flex;
+  width: auto;
+  background: var(--bg-cream);
+  color: var(--color-foreground);
+  /* ensure the panel children can stretch vertically and sit side-by-side */
+  align-items: stretch;
+  text-align: right; /* fallback for inline text */
+}
+
+/* Fix mobile menu width so logo can be sized relative to it */
+.mobileNav {
+  width: var(--menu-width);
+  min-width: calc(var(--menu-width) - 8px);
+}
+
+.mobileNav a {
+  color: var(--color-foreground);
+}
+
+/* layout for mobile menu: logo area on the left, menu panel on the right */
+.mobileRow {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.logoArea {
+  width: calc(100% - var(--menu-width));
+  max-width: calc(100% - var(--menu-width));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+.menuPanel {
+  width: var(--menu-width);
+}
+
+/* When the listen button appears in the mobile menu, simplify its style to match the mobile background */
+.mobileNav .listenMobile {
+  /* Make the mobile listen control more prominent (like desktop): full-width, bold, visible icon + live dot */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  justify-content: flex-start;
+  background: linear-gradient(90deg, var(--accent), var(--brand));
+  color: var(--text-light);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--accent) 18%, transparent 82%);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.6rem;
+  font-weight: 700;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(0,255,133,0.7); }
+  70% { box-shadow: 0 0 0 8px rgba(0,255,133,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,255,133,0); }
+}
+

@@ -1,7 +1,8 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from 'react-oidc-context';
 import S3Uploader from '../../components/S3Uploader';
+import Button from '../../components/Button';
 import MusicList from '../../components/MusicList';
 import CacheEditor from '../../components/CacheEditor';
 import Image from 'next/image';
@@ -11,6 +12,19 @@ export default function DashboardPage() {
 
   const [showDebug, setShowDebug] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [playingUrl, setPlayingUrl] = useState<string | null>(null);
+  const handleSelectionChange = useCallback((ids: string[]) => {
+    setSelectedIds(ids);
+  }, [setSelectedIds]);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+
+  // cleanup blob url when component unmounts or when playingUrl changes
+  useEffect(() => {
+    return () => {
+      try { if (playingUrl) URL.revokeObjectURL(playingUrl); } catch {}
+    };
+  }, [playingUrl]);
 
   function decodeJwt(token?: string) {
     if (!token) return null;
@@ -93,6 +107,49 @@ export default function DashboardPage() {
         <div className="flex items-center gap-4">
           <Image src="/file.svg" alt="Fluff Radio" width={40} height={40} />
           <div>
+                {playingUrl && (
+                  <div style={{ marginTop: 8 }}>
+                    <h5 className="text-sm font-medium">Lecteur</h5>
+                    <audio src={playingUrl} controls autoPlay style={{ width: '100%', marginTop: 6 }} onEnded={async () => {
+                      // play next in selectedIds order
+                      try {
+                        const list = selectedIds;
+                        if (!list || list.length === 0) return;
+                        const idx = list.indexOf(playingId ?? '');
+                        const next = (idx >= 0 && idx + 1 < list.length) ? list[idx + 1] : null;
+                        if (!next) return; // end of queue
+                        const url = (process.env.NEXT_PUBLIC_API_PROXY === '1' ? '/api' : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '')) + `/musics/${encodeURIComponent(next)}/download`;
+                        const headersInit: Record<string,string> = {};
+                        const token = auth.user?.access_token ?? auth.user?.id_token;
+                        if (token) headersInit['Authorization'] = `Bearer ${token}`;
+                        const res = await fetch(url, { method: 'GET', headers: headersInit, credentials: 'include' });
+                        if (!res.ok) throw new Error(`Téléchargement: ${res.status}`);
+                        const blob = await res.blob();
+                        const objectUrl = URL.createObjectURL(blob);
+                        if (playingUrl) try { URL.revokeObjectURL(playingUrl); } catch {}
+                        setPlayingUrl(objectUrl);
+                        setPlayingId(next);
+                      } catch (err) {
+                        console.error('queue next play error', err);
+                      }
+                    }} />
+                    <div style={{ marginTop: 6 }}>
+                      <Button variant="outline" size="sm" onClick={() => { try { if (playingUrl) URL.revokeObjectURL(playingUrl); } catch {} setPlayingUrl(null); setPlayingId(null); }}>Stop</Button>
+                    </div>
+                  </div>
+                )}
+                {selectedIds.length > 0 && (
+                  <div style={{ marginTop: 12 }}>
+                    <h5 className="text-sm font-medium mb-2">File d&apos;attente</h5>
+                    <ol className="text-sm text-zinc-600" style={{ paddingLeft: 18, margin: 0 }}>
+                      {selectedIds.map((id, idx) => (
+                        <li key={id} style={{ marginBottom: 6 }}>
+                          <strong style={{ marginRight: 8 }}>{idx + 1}.</strong> {id}
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
             <div className="font-semibold">Fluff Radio</div>
             <div className="text-xs text-zinc-500">Panneau d&apos;administration</div>
           </div>
@@ -109,17 +166,17 @@ export default function DashboardPage() {
           <div className="mb-4 rounded-md bg-rose-50 border border-rose-100 text-rose-700 p-3">Erreur d&apos;authentification : {authErrorFromUrl}</div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <section className="lg:col-span-2 bg-white rounded-xl shadow p-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6">
+          <section className="panel">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Liste des musiques</h3>
               <div className="text-sm text-zinc-500">Rôle programmateur: {String(isProgrammateur)}</div>
             </div>
 
-            <MusicList key={refreshKey} token={auth.user?.access_token ?? auth.user?.id_token} />
+            {/* stable callback to avoid causing effect loops in MusicList */}
+            <MusicList key={refreshKey} token={auth.user?.access_token ?? auth.user?.id_token} onSelectionChange={handleSelectionChange} />
           </section>
-
-          <aside className="bg-white rounded-xl shadow p-6">
+          <aside className="panel">
             <h3 className="text-lg font-semibold mb-3">Uploader</h3>
             <S3Uploader
               token={auth.user?.id_token ?? auth.user?.access_token ?? ''}
@@ -129,6 +186,114 @@ export default function DashboardPage() {
                 console.info('Uploaded key', key);
               }}
             />
+
+            {/* Actions for selected tracks */}
+            <div className="mt-4 uploader-actions">
+              <h4 className="text-sm font-medium mb-2">Actions sélection</h4>
+              <div className="flex flex-col gap-2">
+                <div className="text-sm text-zinc-600">Sélection: {selectedIds.length}</div>
+                <div className="flex gap-2 uploader-actions-row">
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    // download selected sequentially
+                    for (const id of selectedIds) {
+                      try {
+                        const url = (process.env.NEXT_PUBLIC_API_PROXY === '1' ? '/api' : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '')) + `/musics/${encodeURIComponent(id)}/download`;
+                        const headersInit: Record<string,string> = {};
+                        const token = auth.user?.access_token ?? auth.user?.id_token;
+                        if (token) headersInit['Authorization'] = `Bearer ${token}`;
+                        const res = await fetch(url, { method: 'GET', headers: headersInit, credentials: 'include' });
+                        if (!res.ok) throw new Error(`Téléchargement: ${res.status}`);
+                        const blob = await res.blob();
+                        const disposition = res.headers.get('Content-Disposition') ?? '';
+                        let filename = id;
+                        const m = /filename="?([^";]+)"?/.exec(disposition);
+                        if (m && m[1]) filename = m[1];
+                        const objectUrl = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = objectUrl;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        URL.revokeObjectURL(objectUrl);
+                      } catch (e) {
+                        console.error('download selected error', e);
+                        alert(String(e));
+                      }
+                    }
+                  }} disabled={selectedIds.length===0}>Télécharger</Button>
+
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    // play selected - require single selection
+                    if (selectedIds.length !== 1) return alert('Sélectionnez une seule piste pour écouter.');
+                    const id = selectedIds[0];
+                    try {
+                      const url = (process.env.NEXT_PUBLIC_API_PROXY === '1' ? '/api' : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '')) + `/musics/${encodeURIComponent(id)}/download`;
+                      const headersInit: Record<string,string> = {};
+                      const token = auth.user?.access_token ?? auth.user?.id_token;
+                      if (token) headersInit['Authorization'] = `Bearer ${token}`;
+                      const res = await fetch(url, { method: 'GET', headers: headersInit, credentials: 'include' });
+                      if (!res.ok) throw new Error(`Téléchargement: ${res.status}`);
+                      const blob = await res.blob();
+                      const objectUrl = URL.createObjectURL(blob);
+                      // revoke previous
+                      if (playingUrl) URL.revokeObjectURL(playingUrl);
+                      setPlayingUrl(objectUrl);
+                      setPlayingId(id);
+                    } catch (err) {
+                      console.error('play error', err);
+                      alert(String(err));
+                    }
+                  }} disabled={selectedIds.length===0}>Écouter</Button>
+
+                  <Button variant="outline" size="sm" onClick={async () => {
+                    if (selectedIds.length === 0) return alert('Aucune sélection.');
+                    if (!confirm(`Confirmer la suppression de ${selectedIds.length} élément(s) ?`)) return;
+                    const token = auth.user?.access_token ?? auth.user?.id_token;
+                    for (const id of selectedIds) {
+                      try {
+                        const url = (process.env.NEXT_PUBLIC_API_PROXY === '1' ? '/api' : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '')) + `/musics/${encodeURIComponent(id)}`;
+                        const headersInit: Record<string,string> = {};
+                        if (token) headersInit['Authorization'] = `Bearer ${token}`;
+                        const res = await fetch(url, { method: 'DELETE', headers: headersInit, credentials: 'include' });
+                        if (!res.ok) {
+                          const t = await res.text().catch(()=>`HTTP ${res.status}`);
+                          throw new Error(t);
+                        }
+                      } catch (e) {
+                        console.error('delete selected error', e);
+                        alert(String(e));
+                      }
+                    }
+                    // refresh list
+                    setRefreshKey((k) => k + 1);
+                  }} disabled={selectedIds.length===0} className="text-rose-600">Supprimer</Button>
+
+                  <label className="btn-outline-fluff btn-sm cursor-pointer">
+                    Remplacer
+                    <input type="file" accept="audio/*" className="hidden" onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (!f) return;
+                      if (selectedIds.length !== 1) return alert('Sélectionnez une seule piste pour remplacer.');
+                      const id = selectedIds[0];
+                      try {
+                        const url = (process.env.NEXT_PUBLIC_API_PROXY === '1' ? '/api' : (process.env.NEXT_PUBLIC_API_BASE_URL ?? '')) + `/musics/${encodeURIComponent(id)}`;
+                        const headersInit: Record<string,string> = { 'Content-Type': f.type || 'application/octet-stream' };
+                        const token = auth.user?.access_token ?? auth.user?.id_token;
+                        if (token) headersInit['Authorization'] = `Bearer ${token}`;
+                        const res = await fetch(url, { method: 'PUT', headers: headersInit, body: f, credentials: 'include' });
+                        if (!res.ok) throw new Error(`Replace failed ${res.status}`);
+                        setRefreshKey((k) => k + 1);
+                        alert('Fichier remplacé');
+                      } catch (err) {
+                        console.error('replace selected error', err);
+                        alert(String(err));
+                      }
+                    }} />
+                  </label>
+                </div>
+              </div>
+            </div>
 
             <CacheEditor token={auth.user?.id_token ?? auth.user?.access_token ?? ''} isProgrammateur={isProgrammateur} onSaved={() => setRefreshKey((k) => k + 1)} />
 

@@ -1,49 +1,539 @@
 @import "tailwindcss";
 
-:root {
-  /* Palette inspirée de la charte Fluff Radio */
-  --fluff-bg-1: #fff5f8; /* doux rose */
-  --fluff-bg-2: #f0fbff; /* doux bleu */
-  --background: linear-gradient(135deg, var(--fluff-bg-1) 0%, var(--fluff-bg-2) 100%);
-  --foreground: #0f172a; /* texte principal sombre */
-  --fluff-accent: #ff6fb5; /* accent rose */
-  --fluff-muted: #6b7280;
-}
+/* Utilise Bayon pour les titres et Rubik (light) pour le corps via next/font variables
+  Les variables --font-bayon et --font-rubik sont injectées par `next/font/google` dans `app/layout.tsx`.
+  On fournit des fallbacks robustes si les variables ne sont pas présentes. */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* variables centrales de la charte */
+  /* Ajustement des couleurs : brand = couleur principale pour éléments marquants
+     Accent = couleur secondaire (CTA). Vous pouvez modifier ces valeurs pour
+     coller précisément à la charte. */
+  --brand: #6B2EA6;          /* couleur principale (ex: violet riche) */
+  --accent: #AF6F56;         /* couleur secondaire / CTA (chaleureuse) */
+  --bg-cream: #F0E5C9;       /* fond clair */
+  --bg-dark: #0b1220;        /* fond sombre */
+  --text-dark: #222222;      /* texte sombre */
+  --text-light: #ffffff;     /* texte clair */
+  --live: #00ff85;           /* indicateur live */
+
+  /* police par défaut : utilise variables créées par next/font si disponibles, sinon fallback */
+  --font-body: var(--font-rubik, 'Rubik', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+  --font-head: var(--font-bayon, 'Bayon', var(--font-rubik, 'Rubik'), system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif);
+  /* tailles du logo : réduites pour éviter chevauchement */
+  --logo-height: 48px;       /* hauteur du logo dans l'en-tête (desktop) */
+  --logo-large-height: 72px; /* hauteur max pour `logogros` (menu mobile) */
+  /* largeur du panneau menu mobile (utilisée pour calculer la place du logo) */
+  --menu-width: 220px;
+  /* header accent to visually separate the header from the page */
+  --header-accent: rgba(107,46,166,0.06);
+  /* couleur d'arrière-plan utilisée globalement (par défaut : crème) */
+  --color-background: var(--bg-cream);
+  --color-foreground: var(--text-dark);
+  /* background grid removed — kept no-op variables removed on user request */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --color-background: var(--bg-dark);
+    --color-foreground: var(--text-light);
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-background);
+  /* background grid removed on user request */
+  color: var(--color-foreground);
+  font-family: var(--font-body);
 }
 
-/* Utility: buttons matching la charte */
+/* --------------------------------------------------------------------------
+   Force le thème défini par la charte indépendamment de la préférence système
+   (pratique si vous voulez un rendu identique en dev et en prod)          
+   Pour revenir au comportement 'prefers-color-scheme', supprimez ce bloc.  
+---------------------------------------------------------------------------- */
+:root {
+  --color-background: var(--bg-cream);
+  --color-foreground: var(--text-dark);
+}
+
+/* Titres : appliquer la police de la charte pour les headings */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-head);
+}
+
+/* Global centered container to control page width */
+.container {
+  max-width: 1200px; /* limite légèrement pour ressembler au site */
+  margin: 0 auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+footer {
+  background: var(--brand);
+  color: var(--text-light);
+}
+
+/* Small rounded ribbon style for footer when used as centered label */
+.footerRibbon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 1.25rem;
+  /* pill shape */
+  border-radius: 9999px;
+  margin: 0.75rem auto;
+  box-shadow: 0 6px 18px color-mix(in srgb, rgba(0,0,0,0.08) 60%, transparent 40%);
+  max-width: calc(100% - 3rem);
+  width: auto;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+header {
+  /* warmer horizontal gradient matching the original site header */
+  background: linear-gradient(90deg, rgba(243,231,203,1) 0%, rgba(255,250,240,0.95) 60%);
+  color: var(--brand);
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(0,0,0,0.04);
+  backdrop-filter: blur(3px) saturate(105%);
+}
+
+/* make the small header band visually separated from the page */
+.header-band {
+  height: 0.5rem;
+  background: linear-gradient(90deg, rgba(107,46,166,0.12), rgba(175,111,86,0.06));
+}
+
+
+#contenu-apropos h2,
+#contenu-apropos h3,
+#contenu-apropos p,
+#contenu-apropos a {
+  color: var(--text-light);
+}
+
+#contenu-apropos {
+  background: var(--brand);
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.live-player {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+  font-family: var(--font-body);
+}
+
+/* Hero title style for dashboard landing */
+.hero-title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.6rem);
+  line-height: 1.02;
+  margin: 0 0 1rem 0;
+  color: var(--color-foreground);
+}
+
+/* Panel utility to match site: white card with generous padding and soft shadow */
+.panel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 12px 30px rgba(15,23,42,0.06);
+}
+
+/* Full-bleed panel used on dashboard to occupy the entire width of the viewport
+   Compensates for the page horizontal padding (px-4 on main). Adjust values if you change main padding. */
+.panel-bleed {
+  width: calc(100% + 2rem);
+  margin-left: -1rem;
+  margin-right: -1rem;
+  border-radius: 12px; /* keep rounded corners */
+  box-shadow: 0 12px 30px rgba(15,23,42,0.06);
+}
+
+/* Ensure h1 inside panel uses the hero style */
+.panel h1, .panel .hero-title {
+  font-family: var(--font-head);
+  font-weight: 700;
+  font-size: clamp(2rem, 4.4vw, 3.6rem);
+  line-height: 1.02;
+  margin: 0 0 1rem 0;
+  color: var(--color-foreground);
+}
+
+/* Footer ribbon centered */
+.footer-ribbon-centered {
+  max-width: 1200px;
+  margin: 2rem auto 0 auto;
+  padding: 0.75rem 1rem;
+  background: var(--brand);
+  color: var(--text-light);
+  text-align: center;
+}
+
+/* Music list toolbar */
+.music-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+.music-toolbar .left {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.music-toolbar .right {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Table polish: readable rows, sticky header, better spacing */
+.music-table-wrapper {
+  width: 100%;
+  overflow: auto;
+  border-radius: 8px;
+}
+.music-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+/* Use fixed table layout so column widths are respected and long cells don't push row height.
+   Exclude the first column (checkbox + badge) from clipping so badges remain visible. */
+.music-table {
+  table-layout: fixed;
+}
+.music-table thead th:not(:first-child),
+.music-table tbody td:not(:first-child) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* First column (checkbox + badge) should allow visible overflow so badges aren't clipped */
+.music-table thead th:first-child,
+.music-table tbody td:first-child {
+  overflow: visible;
+  white-space: nowrap;
+  width: 72px; /* enough room for checkbox + badge (increased to avoid clipping) */
+  min-width: 72px;
+  padding-left: 12px;
+  position: relative; /* allow absolute positioning inside if needed */
+}
+.music-table thead th {
+  position: sticky;
+  top: 0;
+  background: rgba(250,250,250,0.95);
+  z-index: 2;
+  padding: 0.75rem 0.75rem;
+  text-align: left;
+  font-weight: 700;
+  color: rgba(34,34,34,0.9);
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.music-table tbody td {
+  padding: 0.9rem 0.75rem;
+  vertical-align: top;
+  color: rgba(34,34,34,0.85);
+  border-bottom: 1px solid rgba(0,0,0,0.03);
+}
+.music-table tbody tr:nth-child(odd) {
+  background: #fff;
+}
+.music-table tbody tr:nth-child(even) {
+  background: #faf9fb;
+}
+
+/* Keep the actions column visible: sticky to the right and above other cells when scrolled */
+.music-table th:last-child,
+.music-table td:last-child {
+  position: sticky;
+  right: 0;
+  z-index: 4;
+  background: linear-gradient(90deg, rgba(255,255,255,0.98), rgba(255,255,255,0.9));
+  /* ensure the cell stays compact */
+  white-space: nowrap;
+}
+
+/* Make action buttons sit on top and not wrap on desktop */
+.actions-group { position: relative; z-index: 5; }
+
+/* On small screens allow content to wrap naturally for readability */
+@media (max-width: 640px) {
+  .music-table thead th,
+  .music-table tbody td { white-space: normal; }
+  .music-table { table-layout: auto; }
+  .music-table th:last-child,
+  .music-table td:last-child { position: static; }
+  .actions-group { flex-wrap: wrap; }
+}
+
+/* On desktop hide the actions column in the table to avoid duplication with the Uploader sidebar
+   The sidebar provides the canonical action controls when enough space is available. */
+@media (min-width: 900px) {
+  .music-table th:last-child,
+  .music-table td:last-child {
+    display: none;
+  }
+
+  /* Keep the uploader sidebar visible while scrolling */
+  .grid > aside.panel {
+    position: sticky;
+    top: 1.25rem;
+    align-self: start; /* ensure it doesn't stretch vertically */
+  }
+}
+
+/* Uploader sidebar: prevent action buttons from overflowing the panel */
+.uploader-actions { display: flex; flex-direction: column; gap: 0.5rem; }
+.uploader-actions .uploader-actions-row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.uploader-actions .btn-outline-fluff,
+.uploader-actions .btn-fluff,
+.uploader-actions label.btn-outline-fluff {
+  max-width: 100%;
+  box-sizing: border-box;
+  white-space: nowrap; /* keep button text on one line, but allow wrapping of buttons themselves */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.uploader-actions label { display: inline-flex; align-items: center; }
+
+/* Allow the replace label to shrink to multiple lines if needed on very narrow screens */
+@media (max-width: 520px) {
+  .uploader-actions .btn-outline-fluff,
+  .uploader-actions .btn-fluff { white-space: normal; }
+}
+
+/* badge showing selection order: fixed-size circle so the number is perfectly centered */
+.order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px; /* fixed circle size for consistent centering */
+  height: 24px;
+  line-height: 24px; /* ensure vertical centering on older browsers */
+  padding: 0; /* no horizontal padding so digits remain centered */
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--text-light);
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+/* Visual improvements for selection */
+.music-table td > label { display: inline-flex; align-items: center; gap: 8px; overflow: visible; position: relative; }
+.music-table input[type="checkbox"] { width: 18px; height: 18px; flex: 0 0 auto; }
+
+/* position the badge absolutely to the right of the checkbox to avoid native control overlap */
+.music-table .order-badge {
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  font-size: 0.78rem;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.06);
+  position: absolute;
+  left: 36px; /* sits to the right of the 18px checkbox + small gap */
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 40; /* ensure it's above form control visuals */
+}
+.music-table tbody tr.row-selected {
+  background: color-mix(in srgb, var(--brand) 4%, transparent 96%);
+}
+.music-table tbody tr.row-selected td { color: rgba(0,0,0,0.85); }
+.music-table tbody tr.row-selected .order-badge { background: linear-gradient(90deg, var(--brand), var(--accent)); }
+
+/* make badge sit close to the checkbox without pushing layout */
+.music-table td .order-badge { margin-left: 0; }
+
+
+/* Action buttons group */
+.actions-group { display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end; }
+.actions-group .btn-outline-fluff { padding:0.35rem 0.6rem; border-radius:8px; }
+
+/* Ensure actions column stays compact on desktop and aligned to the right */
+.music-table th:last-child,
+.music-table td:last-child {
+  text-align: right;
+  width: 220px; /* matches inline width in JSX */
+  white-space: nowrap;
+}
+
+/* Prevent action buttons from wrapping on desktop; allow wrapping on small screens */
+@media (min-width: 900px) {
+  .actions-group { flex-wrap: nowrap; }
+}
+
+@media (max-width: 900px) {
+  .music-toolbar { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+}
+
+/* Onglets */
+.live-player .tabs {
+  display: flex;
+  border-bottom: 1px solid #e5e7eb; /* gris clair */
+  gap: 0;
+  margin-bottom: 1rem;
+}
+
+.live-player .tab-btn {
+  flex: 1;
+  padding: 0.6rem 0;
+  font-weight: 600;
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: color-mix(in srgb, var(--color-foreground) 68%, white 32%);
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.live-player .tab-btn:focus {
+  outline: none;
+}
+
+.live-player .tab-btn.active.twitch {
+  color: #2563eb; /* left as platform colors */
+  border-bottom-color: #2563eb;
+}
+
+.live-player .tab-btn.active.tiktok {
+  color: #ec4899;
+  border-bottom-color: #ec4899;
+}
+
+/* Conteneur responsive vidéo (16:9) */
+.live-player .player-wrap {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%; /* 16:9 */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(0,0,0,0.08);
+  background: #000;
+}
+
+.live-player .tab-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+/* iframe / embed plein conteneur */
+.live-player .player-wrap iframe,
+.live-player .player-wrap .iframely-embed,
+.live-player .player-wrap .tiktok-embed,
+.live-player .player-wrap blockquote.tiktok-embed {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+.live-player blockquote.tiktok-embed {
+  box-sizing: border-box;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+.live-player blockquote.tiktok-embed section a {
+  color: inherit;
+  text-decoration: none;
+}
+
+@media (max-width: 420px) {
+  .live-player {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+  }
+  .live-player .player-wrap {
+    border-radius: 8px;
+    box-shadow: 0 6px 12px rgba(0,0,0,0.06);
+  }
+}
+
+h2, h3, p , a {
+  color: var(--color-foreground);
+}
+
+/* Small helper utility classes to apply brand colors where Tailwind arbitrary values are used */
+.btn-brand {
+  background: var(--brand) !important;
+  color: var(--text-light) !important;
+}
+.btn-brand:hover { background: color-mix(in srgb, var(--brand) 88%, black 12%) !important; }
+.text-brand { color: var(--brand) !important; }
+.bg-brand { background: var(--brand) !important; }
+.btn-gradient-vr { background: linear-gradient(90deg, var(--brand), var(--accent)) !important; color: var(--text-light) !important; }
+
+.menu-open .top-logo {
+  visibility: hidden;
+}
+
+/* Global helper for the small header logo (plain class "top-logo" used in JSX) */
+.top-logo {
+  height: var(--logo-height);
+  max-height: var(--logo-height);
+  width: auto;
+  object-fit: contain;
+}
+
+/* Backwards-compatible button classes used in older components */
 .btn-fluff {
-  background-color: var(--fluff-accent);
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: linear-gradient(90deg, var(--accent), var(--brand));
+  color: var(--text-light);
   padding: 0.5rem 1rem;
   border-radius: 9999px;
+  font-weight: 700;
+  text-decoration: none;
 }
 
 .btn-outline-fluff {
-  border: 1px solid rgba(15,23,42,0.08);
-  color: var(--foreground);
-  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.9rem;
   border-radius: 9999px;
+  border: 1px solid rgba(107,46,166,0.12);
+  color: var(--brand);
   background: transparent;
 }
+
+/* Some legacy components use Tailwind utility classes; map the common combos to brand styles */
+.rounded-full.bg-zinc-900 {
+  background: var(--brand) !important;
+  color: var(--text-light) !important;
+}
+.rounded-full.border.border-zinc-900 {
+  border-color: rgba(107,46,166,0.12) !important;
+  color: var(--brand) !important;
+  background: transparent !important;
+}
+
+/* Small button size helper */
+.btn-sm {
+  padding: 0.35rem 0.6rem !important;
+  font-size: 0.875rem !important;
+}
+

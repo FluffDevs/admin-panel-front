@@ -1,8 +1,10 @@
 "use client";
 import React, { useEffect, useState } from 'react';
+import Button from './Button';
 
 type Props = {
   token?: string | null;
+  onSelectionChange?: (ids: string[]) => void;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://nu8n9r0hl5.execute-api.eu-west-1.amazonaws.com';
@@ -30,7 +32,7 @@ function parseCsv(csv: string) {
   return { headers, rows };
 }
 
-export default function MusicList({ token }: Props) {
+export default function MusicList({ token, onSelectionChange }: Props) {
   // NOTE: API pages are 0-based
   const [page, setPage] = useState<number>(0);
   const [loading, setLoading] = useState(false);
@@ -41,6 +43,8 @@ export default function MusicList({ token }: Props) {
   const [totalPage, setTotalPage] = useState<number | null>(null);
   const [playingUrl, setPlayingUrl] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // preserve selection order (useful for playlists/queue)
+  const [selectedOrder, setSelectedOrder] = useState<string[]>([]);
   // Debug: keep raw response body from last GET /musics
   const [lastFetchRaw, setLastFetchRaw] = useState<string | null>(null);
   const [showRaw, setShowRaw] = useState<boolean>(false);
@@ -151,9 +155,18 @@ export default function MusicList({ token }: Props) {
       const next = new Set<string>();
       const idSet = new Set(rows.map((r) => (r.id ?? r.ID ?? r.Id ?? r['id'] ?? '')));
       prev.forEach((v) => { if (idSet.has(v)) next.add(v); });
+      // prune selectedOrder as well, keep order
+      setSelectedOrder((ord) => ord.filter((id) => idSet.has(id)));
       return next;
     });
   }, [rows]);
+
+  // notify parent whenever selection changes
+  useEffect(() => {
+    try {
+      if (typeof onSelectionChange === 'function') onSelectionChange(selectedOrder.length ? selectedOrder : Array.from(selectedIds));
+    } catch {}
+  }, [selectedIds, selectedOrder, onSelectionChange]);
 
   // Timer to trigger refreshKey when autoRefresh is enabled
   useEffect(() => {
@@ -325,9 +338,10 @@ export default function MusicList({ token }: Props) {
   };
 
   const downloadSelected = async () => {
-    if (selectedIds.size === 0) return setError('Aucune sélection.');
+    const list = selectedOrder.length ? selectedOrder : Array.from(selectedIds);
+    if (list.length === 0) return setError('Aucune sélection.');
     // download sequentially to avoid spamming the browser
-    for (const id of Array.from(selectedIds)) {
+    for (const id of list) {
       await downloadMusic(id);
     }
   };
@@ -335,37 +349,48 @@ export default function MusicList({ token }: Props) {
   const toggleSelect = (id: string, checked: boolean) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (checked) next.add(id); else next.delete(id);
+      if (checked) {
+        next.add(id);
+        setSelectedOrder((ord) => (ord.includes(id) ? ord : [...ord, id]));
+      } else {
+        next.delete(id);
+        setSelectedOrder((ord) => ord.filter((x) => x !== id));
+      }
       return next;
     });
   };
 
   const toggleSelectAll = (checked: boolean) => {
     if (checked) {
-      const all = new Set(rows.map((r) => (r.id ?? r.ID ?? r.Id ?? r['id'] ?? '')));
+      const allIds = rows.map((r) => (r.id ?? r.ID ?? r.Id ?? r['id'] ?? ''));
+      const all = new Set(allIds);
       setSelectedIds(all);
+      setSelectedOrder(allIds);
     } else {
       setSelectedIds(new Set());
+      setSelectedOrder([]);
     }
   };
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold">Liste des musiques (page {page + 1}{totalPage ? ` / ${totalPage}` : ''})</h3>
-          <div className="text-xs text-zinc-500">Next-Page: {nextPage ?? '-'} — Total-Page: {totalPage ?? '-'}</div>
+      <div className="music-toolbar">
+        <div className="left">
+          <div>
+            <h3 className="text-lg font-semibold">Liste des musiques</h3>
+            <div className="text-xs text-zinc-500">Page {page + 1}{totalPage ? ` / ${totalPage}` : ''} — Next: {nextPage ?? '-'}</div>
+          </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="right">
           <div className="text-sm text-zinc-600">Sélectionnées: {selectedIds.size}</div>
-          <button onClick={() => setSelectedIds(new Set())} className="btn-outline-fluff text-sm">Effacer sélection</button>
-          <button onClick={downloadSelected} className="btn-fluff text-sm">Télécharger sélection</button>
+          <Button variant="outline" size="sm" onClick={() => setSelectedIds(new Set())}>Effacer</Button>
+          <Button variant="primary" size="sm" onClick={downloadSelected}>Télécharger</Button>
         </div>
       </div>
 
       {/* Auto-refresh controls */}
-      <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
+      <div style={{ marginTop: 8, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} />
           <span style={{ fontSize: 13 }}>Auto-refresh</span>
@@ -378,7 +403,7 @@ export default function MusicList({ token }: Props) {
       </div>
       {/* Debug: raw API response */}
       <div style={{ marginTop: 8 }}>
-        <button className="btn-outline-fluff text-sm" onClick={() => setShowRaw((s) => !s)}>{showRaw ? 'Masquer réponse brute' : 'Afficher réponse brute'}</button>
+        <Button variant="outline" size="sm" onClick={() => setShowRaw((s) => !s)}>{showRaw ? 'Masquer réponse brute' : 'Afficher réponse brute'}</Button>
         {showRaw && (
           <div style={{ marginTop: 8 }}>
             <h4 className="text-sm font-medium">Dernière réponse brute (GET /musics)</h4>
@@ -392,72 +417,72 @@ export default function MusicList({ token }: Props) {
       {!loading && rows.length === 0 && <div>Aucune musique trouvée.</div>}
 
       {rows.length > 0 && (
-        <div className="overflow-x-auto">
-          <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            <table className="w-full table-auto text-sm">
-              <thead className="bg-zinc-100">
-                <tr>
-                  <th className="p-3 w-12 text-left">
-                    <input type="checkbox" checked={rows.length > 0 && selectedIds.size === rows.length} onChange={(e) => toggleSelectAll(e.target.checked)} />
-                  </th>
-                  {headers.map((h) => (
-                    <th key={h} className="p-3 text-left font-medium text-zinc-700">{h}</th>
-                  ))}
-                  <th className="p-3 w-56 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const id = r.id ?? r.ID ?? r.Id ?? r['id'] ?? '';
-                  const isEven = i % 2 === 0;
-                  return (
-                    <tr key={i} className={isEven ? 'bg-white' : 'bg-zinc-50'}>
-                      <td className="p-3 w-12 align-top">
+        <div className="music-table-wrapper">
+          <table className="music-table">
+            <thead>
+              <tr>
+                <th style={{ width: 48 }}>
+                  <input type="checkbox" checked={rows.length > 0 && selectedIds.size === rows.length} onChange={(e) => toggleSelectAll(e.target.checked)} />
+                </th>
+                {headers.map((h) => (
+                  <th key={h}>{h}</th>
+                ))}
+                <th style={{ width: 220 }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => {
+                const id = r.id ?? r.ID ?? r.Id ?? r['id'] ?? '';
+                return (
+                  <tr key={i} className={selectedIds.has(id) ? 'row-selected' : ''}>
+                    <td>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <input type="checkbox" checked={selectedIds.has(id)} onChange={(e) => toggleSelect(id, e.target.checked)} />
-                      </td>
-                      {headers.map((h) => (
-                        <td key={h} className="p-3 align-top text-zinc-700">{r[h]}</td>
-                      ))}
-                      <td className="p-3 align-top">
-                        <div className="flex flex-wrap gap-2">
-                          <button onClick={() => playMusic(id)} disabled={!id} className="btn-outline-fluff text-sm">Écouter</button>
-                          <button onClick={() => void downloadMusic(id)} disabled={!id} className="btn-outline-fluff text-sm">Télécharger</button>
-                          <button onClick={() => {
-                            // open metadata editor prefilled
-                            setEditingRowId(id);
-                            const initial: Record<string, string> = {};
-                            initial.title = String(r.title ?? r.Title ?? r['title'] ?? '');
-                            initial.artist = String(r.artist ?? r.Artist ?? r['artist'] ?? '');
-                            initial.album = String(r.album ?? r.Album ?? r['album'] ?? '');
-                            initial.year = String(r.year ?? r.Year ?? r['year'] ?? '');
-                            setEditingMetadata(initial);
-                          }} className="btn-outline-fluff text-sm">Modifier</button>
+                        {selectedOrder.includes(id) && (
+                          <span className="order-badge" aria-hidden>{selectedOrder.indexOf(id) + 1}</span>
+                        )}
+                      </label>
+                    </td>
+                    {headers.map((h) => (
+                      <td key={h}>{r[h]}</td>
+                    ))}
+                    <td>
+                      <div className="actions-group">
+                        <Button variant="outline" size="sm" onClick={() => playMusic(id)} disabled={!id}>Écouter</Button>
+                        <Button variant="outline" size="sm" onClick={() => void downloadMusic(id)} disabled={!id}>Télécharger</Button>
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setEditingRowId(id);
+                          const initial: Record<string, string> = {};
+                          initial.title = String(r.title ?? r.Title ?? r['title'] ?? '');
+                          initial.artist = String(r.artist ?? r.Artist ?? r['artist'] ?? '');
+                          initial.album = String(r.album ?? r.Album ?? r['album'] ?? '');
+                          initial.year = String(r.year ?? r.Year ?? r['year'] ?? '');
+                          setEditingMetadata(initial);
+                        }}>Modifier</Button>
 
-                          <label className="btn-outline-fluff text-sm cursor-pointer">
-                            Remplacer
-                            <input type="file" accept="audio/*" className="hidden" onChange={async (e) => {
-                              const f = e.target.files?.[0];
-                              if (!f) return;
-                              try {
-                                await replaceFile(id, f);
-                                // small toast
-                                setError(null);
-                                alert('Fichier remplacé');
-                              } catch {
-                                // error already set in replaceFile
-                              }
-                            }} />
-                          </label>
+                        <label className="btn-outline-fluff text-sm cursor-pointer">
+                          Remplacer
+                          <input type="file" accept="audio/*" className="hidden" onChange={async (e) => {
+                            const f = e.target.files?.[0];
+                            if (!f) return;
+                            try {
+                              await replaceFile(id, f);
+                              setError(null);
+                              alert('Fichier remplacé');
+                            } catch {
+                              // error already set in replaceFile
+                            }
+                          }} />
+                        </label>
 
-                          <button onClick={() => void deleteMusic(id)} className="btn-outline-fluff text-sm text-rose-600" disabled={deletingId === id}>{deletingId === id ? 'Suppression...' : 'Supprimer'}</button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <Button variant="outline" size="sm" onClick={() => void deleteMusic(id)} className="text-rose-600" disabled={deletingId === id}>{deletingId === id ? 'Suppression...' : 'Supprimer'}</Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -472,7 +497,7 @@ export default function MusicList({ token }: Props) {
             <label>Année<input type="number" className="w-full border rounded px-2 py-1 mt-1" value={editingMetadata.year ?? ''} onChange={(e) => setEditingMetadata({ ...editingMetadata, year: e.target.value })} /></label>
           </div>
           <div className="mt-3 flex gap-2">
-            <button className="btn-fluff" onClick={async () => {
+            <Button variant="primary" onClick={async () => {
               try {
                 await patchMetadata(editingRowId, {
                   title: editingMetadata.title,
@@ -486,15 +511,15 @@ export default function MusicList({ token }: Props) {
               } catch {
                 // error displayed in setError
               }
-            }}>Confirmer</button>
-            <button className="btn-outline-fluff" onClick={() => { setEditingRowId(null); setEditingMetadata({}); }}>Annuler</button>
+            }}>Confirmer</Button>
+            <Button variant="outline" onClick={() => { setEditingRowId(null); setEditingMetadata({}); }}>Annuler</Button>
           </div>
         </div>
       )}
 
       <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-  <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0}>Précédent</button>
-  <button onClick={() => { if (nextPage !== null && typeof nextPage !== 'undefined') setPage(nextPage); else setPage((p) => p + 1); }} disabled={nextPage === null && totalPage !== null && page >= (totalPage ?? 0)}>Suivant</button>
+        <Button variant="outline" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page <= 0}>Précédent</Button>
+        <Button variant="outline" onClick={() => { if (nextPage !== null && typeof nextPage !== 'undefined') setPage(nextPage); else setPage((p) => p + 1); }} disabled={nextPage === null && totalPage !== null && page >= (totalPage ?? 0)}>Suivant</Button>
       </div>
 
       {playingUrl && (

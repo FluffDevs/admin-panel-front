@@ -15,16 +15,7 @@ export default function Home() {
         />
       </div>
 
-      <header className="max-w-6xl mx-auto px-6 py-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Image src="/chartegraphique/FluffRadio-CharteGraphique-Noka-x-Pawl/FluffRadio-CG-Full/LivreePNG-FluffRadio-Communication-Livery/FluffRadio-logo-color-livery.png" alt="Fluff Radio" width={140} height={48} priority />
-        </div>
-
-        <nav className="flex items-center gap-3">
-          <Link href="/login" className="rounded-full bg-zinc-900 text-white px-4 py-2 text-sm">Se connecter</Link>
-          <Link href="/dashboard" className="rounded-full border border-zinc-900 px-4 py-2 text-sm">Dashboard</Link>
-        </nav>
-      </header>
+      {/* Header is provided globally by the app layout; avoid duplicating it here */}
 
       <main className="max-w-6xl mx-auto px-6 py-20 flex flex-col lg:flex-row items-center gap-12">
         <section className="flex-1">

@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import AuthProviderClient from "@/components/AuthProviderClient";
+import Header from "@/components/Header";
+import { Rubik, Bayon } from 'next/font/google';
+
+const rubik = Rubik({ subsets: ['latin'], variable: '--font-rubik' });
+const bayon = Bayon({ subsets: ['latin'], variable: '--font-bayon', weight: '400' });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -13,10 +18,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="fr" className={`${rubik.variable} ${bayon.variable}`}>
       <body className="antialiased">
         <AuthProviderClient>
-          {children}
+          <Header />
+          {/* Make the main area full width so pages can use the entire viewport */}
+          <main className="w-full px-4 py-6">
+            {children}
+          </main>
         </AuthProviderClient>
       </body>
     </html>
